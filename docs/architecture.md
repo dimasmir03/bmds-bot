@@ -45,7 +45,10 @@ PROCESSING → COMPLETED | FAILED | CANCELLED
 
 ### Worker
 
-Worker запускает конфигурируемое число consumer loops. Каждый job заново загружается из БД;
+Worker создаёт один provider на процесс и вызывает `provider.startup()` до начала работы с
+очередью: для `flux2_klein` это загрузка весов в GPU. Затем запускается конфигурируемое число
+consumer loops, которые делят этот provider; локальный provider сам сериализует инференс
+через `asyncio.Lock`. Каждый job заново загружается из БД;
 terminal status пропускаются. Ошибка provider сохраняется в job и логируется с traceback,
 пользователь получает только безопасное сообщение. Telegram send failure не откатывает
 успешное редактирование. `cancel_requested` подавляет отправку результата.

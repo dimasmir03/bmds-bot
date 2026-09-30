@@ -9,3 +9,5 @@ def configure_logging(level: str = "INFO") -> None:
         stream=sys.stdout,
         force=True,
     )
+    # httpx logs every HTTP request at INFO (e.g. each Hugging Face file while loading weights).
+    logging.getLogger("httpx").setLevel(logging.WARNING)

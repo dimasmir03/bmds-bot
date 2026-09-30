@@ -1,0 +1,23 @@
+# GPU override for the local FLUX.2 klein worker:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build -d
+# Requires IMAGE_PROVIDER=flux2_klein and HF_TOKEN in .env.
+
+services:
+  worker:
+    build:
+      context: .
+      target: worker
+      args:
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu128}
+    volumes:
+      - hf_cache:/app/hf_cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  hf_cache:
