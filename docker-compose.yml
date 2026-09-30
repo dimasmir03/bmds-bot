@@ -1,0 +1,75 @@
+name: bmds-bot
+
+x-python-service: &python-service
+  build: .
+  env_file: .env
+  restart: unless-stopped
+  volumes:
+    - image_storage:/app/storage
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+    redis:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: bmds
+      POSTGRES_USER: bmds
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bmds}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bmds -d bmds"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    build: .
+    env_file: .env
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *python-service
+    command: ["uvicorn", "app.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  bot:
+    <<: *python-service
+    command: ["python", "-m", "app.bot.bot"]
+
+  worker:
+    <<: *python-service
+    command: ["python", "-m", "app.worker.worker"]
+
+volumes:
+  postgres_data:
+  redis_data:
+  image_storage:
+

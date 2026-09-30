@@ -1,0 +1,7 @@
+app_dir: /opt/bmds-bot
+repo_url: https://github.com/your-user/bmds-bot.git
+repo_version: main
+telegram_bot_token: "store-with-ansible-vault"
+admin_api_key: "store-with-ansible-vault"
+postgres_password: "store-with-ansible-vault"
+

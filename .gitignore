@@ -1,0 +1,17 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.idea/
+.vscode/
+storage/input/*
+storage/output/*
+storage/temp/*
+!storage/input/.gitkeep
+!storage/output/.gitkeep
+!storage/temp/.gitkeep
+
