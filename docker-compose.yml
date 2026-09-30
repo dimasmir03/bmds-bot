@@ -1,7 +1,9 @@
 name: bmds-bot
 
 x-python-service: &python-service
-  build: .
+  build:
+    context: .
+    target: runtime
   env_file: .env
   restart: unless-stopped
   volumes:
@@ -41,7 +43,9 @@ services:
     restart: unless-stopped
 
   migrate:
-    build: .
+    build:
+      context: .
+      target: runtime
     env_file: .env
     command: ["alembic", "upgrade", "head"]
     depends_on:

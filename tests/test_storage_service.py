@@ -1,3 +1,4 @@
+from io import BytesIO
 from pathlib import Path
 
 import pytest
@@ -36,3 +37,32 @@ def test_storage_rejects_large_image(tmp_path: Path) -> None:
     storage = StorageService(tmp_path, 8)
     with pytest.raises(ImageTooLargeError):
         storage.validate_image(b"\x89PNG\r\n\x1a\nmore", "image/png")
+
+
+def test_storage_accepts_heic_signature_as_jpeg(tmp_path: Path) -> None:
+    storage = StorageService(tmp_path, 1024)
+    assert storage.validate_image(b"\x00\x00\x00\x18ftypheic\x00\x00", "image/heic") == ".jpg"
+
+
+def test_storage_rejects_fake_heic(tmp_path: Path) -> None:
+    storage = StorageService(tmp_path, 1024)
+    with pytest.raises(InvalidImageError):
+        storage.validate_image(b"\xff\xd8\xff not heic", "image/heic")
+
+
+@pytest.mark.asyncio
+async def test_storage_converts_heic_to_jpeg(tmp_path: Path) -> None:
+    pillow_heif = pytest.importorskip("pillow_heif")
+    from PIL import Image
+
+    pillow_heif.register_heif_opener()
+    buffer = BytesIO()
+    Image.new("RGB", (64, 48), "green").save(buffer, format="HEIF")
+    storage = StorageService(tmp_path, 1024 * 1024)
+
+    path = await storage.save_input(buffer.getvalue(), "image/heic")
+
+    assert path.suffix == ".jpg"
+    with Image.open(path) as saved:
+        assert saved.format == "JPEG"
+        assert saved.size == (64, 48)

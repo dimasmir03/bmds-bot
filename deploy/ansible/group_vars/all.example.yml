@@ -5,3 +5,11 @@ telegram_bot_token: "store-with-ansible-vault"
 admin_api_key: "store-with-ansible-vault"
 postgres_password: "store-with-ansible-vault"
 
+# Local FLUX.2 klein on an NVIDIA GPU. The NVIDIA driver must already be installed on the host;
+# the playbook installs nvidia-container-toolkit and uses docker-compose.gpu.yml.
+nvidia_gpu: true
+image_provider: flux2_klein
+hf_token: "store-with-ansible-vault"
+hf_model_id: black-forest-labs/FLUX.2-klein-9B
+model_cpu_offload: false
+model_quantization: none

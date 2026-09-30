@@ -4,6 +4,10 @@
   become: true
   vars_files:
     - group_vars/all.yml
+  vars:
+    compose_files: >-
+      {{ ['docker-compose.yml']
+         + (['docker-compose.gpu.yml'] if nvidia_gpu | default(false) | bool else []) }}
   tasks:
     - name: Install Docker and Git
       ansible.builtin.apt:
@@ -19,6 +23,48 @@
         name: docker
         state: started
         enabled: true
+
+    - name: Set up NVIDIA container toolkit
+      when: nvidia_gpu | default(false) | bool
+      block:
+        - name: Check NVIDIA driver
+          ansible.builtin.command: nvidia-smi
+          changed_when: false
+
+        - name: Create APT keyrings directory
+          ansible.builtin.file:
+            path: /etc/apt/keyrings
+            state: directory
+            mode: "0755"
+
+        - name: Add NVIDIA container toolkit signing key
+          ansible.builtin.get_url:
+            url: https://nvidia.github.io/libnvidia-container/gpgkey
+            dest: /etc/apt/keyrings/nvidia-container-toolkit.asc
+            mode: "0644"
+
+        - name: Add NVIDIA container toolkit repository
+          ansible.builtin.copy:
+            dest: /etc/apt/sources.list.d/nvidia-container-toolkit.list
+            content: >
+              deb [signed-by=/etc/apt/keyrings/nvidia-container-toolkit.asc]
+              https://nvidia.github.io/libnvidia-container/stable/deb/$(ARCH) /
+            mode: "0644"
+
+        - name: Install NVIDIA container toolkit
+          ansible.builtin.apt:
+            name: nvidia-container-toolkit
+            state: present
+            update_cache: true
+          register: nvidia_toolkit
+
+        - name: Configure Docker NVIDIA runtime
+          ansible.builtin.command: nvidia-ctk runtime configure --runtime=docker
+          when: nvidia_toolkit.changed
+          notify: Restart Docker
+
+    - name: Apply Docker runtime changes
+      ansible.builtin.meta: flush_handlers
 
     - name: Checkout application
       ansible.builtin.git:
@@ -38,12 +84,19 @@
     - name: Start application
       community.docker.docker_compose_v2:
         project_src: "{{ app_dir }}"
+        files: "{{ compose_files }}"
         build: always
         state: present
 
   handlers:
+    - name: Restart Docker
+      ansible.builtin.service:
+        name: docker
+        state: restarted
+
     - name: Restart application
       community.docker.docker_compose_v2:
         project_src: "{{ app_dir }}"
+        files: "{{ compose_files }}"
         build: always
         state: restarted

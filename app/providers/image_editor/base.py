@@ -26,6 +26,10 @@ class ImageEditResult(BaseModel):
 class ImageEditorProvider(ABC):
     name: str
 
+    async def startup(self) -> None:
+        """Load heavy resources (e.g. model weights) before the first job."""
+        return None
+
     @abstractmethod
     async def edit(
         self,

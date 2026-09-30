@@ -13,6 +13,11 @@ from app.services.job_service import transition_job
 
 logger = logging.getLogger(__name__)
 
+RESULT_CAPTION = (
+    "Готово! Напишите другое описание, чтобы примерить новый образ на это же фото, "
+    "или пришлите новое фото."
+)
+
 
 class JobProcessor:
     def __init__(self, session: AsyncSession, image_service: ImageService, bot: Bot) -> None:
@@ -56,14 +61,7 @@ class JobProcessor:
                 return
             transition_job(job, JobStatus.COMPLETED)
             await self.session.commit()
-            try:
-                await self.bot.send_document(
-                    job.telegram_chat_id,
-                    FSInputFile(output_path),
-                    caption="Готово.",
-                )
-            except Exception:
-                logger.exception("job_id=%s telegram_send=failed", job.id)
+            await self._send_result(job.id, job.telegram_chat_id, output_path)
             logger.info("job_id=%s status=completed", job.id)
         except Exception as exc:
             logger.exception("job_id=%s status=failed", job.id)
@@ -77,3 +75,15 @@ class JobProcessor:
                 await self.bot.send_message(telegram_chat_id, "Не удалось обработать изображение.")
             except Exception:
                 logger.exception("job_id=%s telegram_error_notification=failed", job_id)
+
+    async def _send_result(self, job_id: uuid.UUID, chat_id: int, output_path: Path) -> None:
+        # Shown inline in the chat; fall back to a file if Telegram rejects it as a photo.
+        try:
+            await self.bot.send_photo(chat_id, FSInputFile(output_path), caption=RESULT_CAPTION)
+            return
+        except Exception:
+            logger.warning("job_id=%s telegram_send_photo=failed fallback=document", job_id)
+        try:
+            await self.bot.send_document(chat_id, FSInputFile(output_path), caption=RESULT_CAPTION)
+        except Exception:
+            logger.exception("job_id=%s telegram_send=failed", job_id)
